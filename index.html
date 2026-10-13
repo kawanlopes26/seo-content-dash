@@ -175,7 +175,6 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;max-width:240px;
     <div class="flt">
       <select class="fsel" id="fStatus" onchange="render();highlightStat(this.value)">
         <option value="">All statuses</option>
-        <option>Published</option><option>Scheduled</option><option>Pending</option><option>In production</option><option>Updated</option>
       </select>
     </div>
     <div class="ctrl-right">
@@ -398,7 +397,6 @@ const LANG = {
   newContent:   'New content',
   published:    'Published',
   scheduled:    'Scheduled',
-  pending:      'Pending',
   inProduction: 'In production',
   updated:      'Updated',
   noResults:    'No results found',
@@ -441,6 +439,25 @@ Follow the full project workflow: Ahrefs research → SERP analysis → article 
 }
 
 
+// Statuses that exist in each type of spreadsheet tab (cards + filter + edit form)
+const STATUS_BY_TYPE = {
+  blog:          ["Published","Scheduled","In production"],
+  optim:         ["In production","Updated"],
+  review_latam:  ["Published","In production"],
+  review_brazil: ["Published","In production"],
+  web:           ["Published","Scheduled","In production"]
+};
+const STATUS_UI = {
+  "Published":     {lbl:"published",    cls:"orange", id:"st-pub"},
+  "Scheduled":     {lbl:"scheduled",    cls:"purple", id:"st-sched"},
+  "In production": {lbl:"inProduction", cls:"teal",   id:"st-prod"},
+  "Updated":       {lbl:"updated",      cls:"green",  id:"st-upd"}
+};
+function statuses() { return STATUS_BY_TYPE[colType()] || STATUS_BY_TYPE.blog; }
+function buildStatusFilter() {
+  document.getElementById("fStatus").innerHTML = `<option value="">All statuses</option>`
+    + statuses().map(s => `<option>${s}</option>`).join("");
+}
 let activeTab = "Blog LATAM";
 let sortCol = "";
 let sortDir = 1;
@@ -473,9 +490,9 @@ function buildTabs() {
 
 function switchTab(key) {
   activeTab = key;
+  buildStatusFilter();
   searchQ = "";
   document.getElementById("srch").value = "";
-  document.getElementById("fStatus").value = "";
   sortCol = ""; sortDir = 1; curPage = 1;
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
   const el = document.getElementById("tab-" + key.replace(/ /g,"_"));
@@ -492,28 +509,21 @@ function filterByStatus(s) {
 
 function renderStats() {
   const r = rows();
-  const pub   = r.filter(x => x.Status === "Published").length;
-  const sched = r.filter(x => x.Status === "Scheduled").length;
-  const prod  = r.filter(x => x.Status === "In production").length;
-  const pend  = r.filter(x => !x.Status || x.Status === "Pending").length;
-  const upd   = r.filter(x => x.Status === "Updated").length;
-  const mk = (lbl,cls,val,s,id) =>
-    `<div class="stat ${cls}" id="${id}" onclick="filterByStatus('${s}')" title="${lbl}">`
+  const mk = (lbl,cls,val,st,id) =>
+    `<div class="stat ${cls}" id="${id}" onclick="filterByStatus('${st}')" title="${lbl}">`
     + `<div class="stat-lbl">${lbl}</div><div class="stat-val">${val}</div></div>`;
   document.getElementById("statsRow").innerHTML =
     mk("Total","",r.length,"","st-all") +
-    mk(t('published'),"orange",pub,"Published","st-pub") +
-    mk(t('scheduled'),"purple",sched,"Scheduled","st-sched") +
-    mk(t('pending'),"green",pend,"Pending","st-pend") +
-    mk(t('inProduction'),"teal",prod,"In production","st-prod") +
-    (colType() === "optim" ? mk(t('updated'),"green",upd,"Updated","st-upd") : "");
+    statuses().map(st => {
+      const ui = STATUS_UI[st];
+      return mk(t(ui.lbl), ui.cls, r.filter(x => x.Status === st).length, st, ui.id);
+    }).join("");
   highlightStat(document.getElementById("fStatus").value);
 }
 
 function highlightStat(s) {
   document.querySelectorAll(".stat").forEach(c => c.classList.remove("active"));
-  const map = {"":"st-all","Published":"st-pub","Scheduled":"st-sched","Pending":"st-pend","In production":"st-prod","Updated":"st-upd"};
-  const el = document.getElementById(map[s] || "st-all");
+  const el = document.getElementById(s && STATUS_UI[s] ? STATUS_UI[s].id : "st-all");
   if (el) el.classList.add("active");
 }
 
@@ -526,7 +536,7 @@ function clearFilters() {
 function getFiltered() {
   const fs = document.getElementById("fStatus").value;
   return rows().filter(r => {
-    if (fs && (r.Status||"Pending") !== fs) return false;
+    if (fs && (r.Status||"") !== fs) return false;
     if (searchQ && !Object.values(r).join(" ").toLowerCase().includes(searchQ)) return false;
     return true;
   });
@@ -587,8 +597,9 @@ function cellHTML(r, c) {
   const v = r[c.k] || "";
   if (c.badge) {
     const map = {Published:"b-pub",Scheduled:"b-sched",Pending:"b-pend","In production":"b-prod",Updated:"b-upd"};
-    const cls = map[v||"Pending"] || "b-pend";
-    return `<td><span class="badge ${cls}"><span class="b-dot"></span>${esc(v||"Pending")}</span></td>`;
+    if (!v) return `<td><span style="color:#ccc;font-size:11px">—</span></td>`;
+    const cls = map[v] || "b-pend";
+    return `<td><span class="badge ${cls}"><span class="b-dot"></span>${esc(v)}</span></td>`;
   }
   if (c.pill) {
     const n = parseInt(v)||0;
@@ -710,13 +721,13 @@ function buildForm(r) {
   const v = k => r ? (r[k]||"") : "";
   const today = new Date().toISOString().split("T")[0];
   const ct = colType();
-  const statOpts = ["Pending","In production","Scheduled","Published"];
+  const statOpts = statuses();
 
   if (ct === "blog") {
     const dateVal = toDateInput(v("Update date")) || today;
     return mkRow(mkGrp("Keyword", mkInp("fKW","text",v("KW"),"main keyword")),
                  mkGrp("URL", mkInp("fURL","url",v("URL"),"https://…")))
-      + mkRow(mkGrp("Status", mkSel("fStatus",statOpts,v("Status")||"Pending")),
+      + mkRow(mkGrp("Status", mkSel("fStatusM",statOpts,v("Status")||"In production")),
               mkGrp("Update date", mkInp("fDate","date",dateVal,"")))
       + mkGrp("Doc link (Google Drive)", mkInp("fDoc","url",v("Doc"),"https://docs.google.com/…"))
       + `<div class="fgrp"><label class="flbl">Meta Title <span id="mTLen" style="color:#bbb;font-weight:400;margin-left:4px"></span></label>`
@@ -732,11 +743,10 @@ function buildForm(r) {
   }
 
   if (ct === "optim") {
-    const optOpts = ["Pending","In production","Scheduled","Published","Updated"];
     const dateVal = toDateInput(v("Update date")) || today;
     return mkRow(mkGrp("Keyword", mkInp("fKW","text",v("KW"),"main keyword")),
                  mkGrp("URL", mkInp("fURL","url",v("URL"),"https://…")))
-      + mkRow(mkGrp("Status", mkSel("fStatus",optOpts,v("Status")||"Pending")),
+      + mkRow(mkGrp("Status", mkSel("fStatusM",statOpts,v("Status")||"In production")),
               mkGrp("Update date", mkInp("fDate","date",dateVal,"")))
       + mkGrp("Doc link (Google Drive)", mkInp("fDoc","url",v("Doc_url")||v("Doc"),"https://docs.google.com/…"))
       + `<div class="fgrp"><label class="flbl">Meta Title <span id="mTLen" style="color:#bbb;font-weight:400;margin-left:4px"></span></label>`
@@ -752,7 +762,7 @@ function buildForm(r) {
     return mkGrp("Page URL", mkInp("fPage","url",v("Page"),"https://…"))
       + mkGrp("Briefing / Work Order", mkTxt("fBrief", v("Briefing/Work Order"), "work description"))
       + mkRow(mkGrp("JIRA", mkInp("fJIRA","text",v("JIRA"),"e.g. SWR-159")),
-              mkGrp("Status", mkSel("fStatus",statOpts,v("Status")||"Pending")))
+              mkGrp("Status", mkSel("fStatusM",statOpts,v("Status")||"In production")))
       + mkGrp("Deploy date", mkInp("fDate","date",dateVal,""));
   }
 
@@ -762,7 +772,7 @@ function buildForm(r) {
                  mkGrp("Search volume", mkInp("fVol","number",v("Search Volume"),"0")))
       + mkGrp("Title", mkInp("fTitle","text",v("Title"),"article title"))
       + mkGrp("URL", mkInp("fURL","url",v("URL"),"https://…"))
-      + mkRow(mkGrp("Status", mkSel("fStatus",statOpts,v("Status")||"Pending")),
+      + mkRow(mkGrp("Status", mkSel("fStatusM",statOpts,v("Status")||"In production")),
               mkGrp("Publish date", mkInp("fDate","date",dateVal,"")))
       + mkGrp("Briefing", mkTxt("fBrief", v("Briefing"), "content briefing"))
       + mkRow(mkGrp("STG Link", mkInp("fSTG","url",v("STG Link"),"https://stg…")),
@@ -777,7 +787,7 @@ function buildForm(r) {
     + mkGrp("Meta Title", mkInp("fMT","text",v("Meta tittle"),"50–60 chars"))
     + mkGrp("Meta Description", mkTxt("fMD", v("Meta description"), "120–160 chars"))
     + mkGrp("URL", mkInp("fURL","url",v("URL"),"https://…"))
-    + mkRow(mkGrp("Status", mkSel("fStatus",statOpts,v("Status")||"Pending")),
+    + mkRow(mkGrp("Status", mkSel("fStatusM",statOpts,v("Status")||"In production")),
             mkGrp("Deploy Date", mkInp("fDate","date",dateVal,"")))
     + mkRow(mkGrp("SERP Score", mkInp("fSerp","text",v("SERP Score"),"e.g. 77%")),
             mkGrp("JIRA", mkInp("fJIRA","text",v("JIRA"),"e.g. WEB-14755")))
@@ -796,10 +806,10 @@ function updLens() {
 
 function saveEntry() {
   const ct = colType();
-  const statOpts = document.getElementById("fStatus");
-  const status = statOpts ? statOpts.value : "Pending";
+  const statSel = document.getElementById("fStatusM");
+  const status = statSel ? statSel.value : "In production";
   let entry = {};
-  const fmtDate = id => { const v=gv(id); return v ? new Date(v).toLocaleDateString("en-US") : ""; };
+  const fmtDate = id => gv(id);  // keep YYYY-MM-DD, same format as the dates loaded from the sheet
 
   if (ct === "blog") {
     const mt = gv("fMT");
