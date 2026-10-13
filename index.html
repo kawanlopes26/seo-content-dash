@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -84,6 +84,7 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;max-width:240px;
 .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--r-full);font-family:var(--font-t);font-size:11px;font-weight:600;white-space:nowrap}
 .b-pub{background:#dcfce7;color:#15803d}.b-sched{background:#dbeafe;color:#1d4ed8}
 .b-pend{background:var(--grey-bg);color:#777}.b-prod{background:#fef9c3;color:#854d0e}
+.b-upd{background:#ccfbf1;color:#0f766e}
 .b-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
 .lpill{display:inline-flex;align-items:center;justify-content:center;min-width:34px;padding:2px 8px;border-radius:var(--r-full);font-family:var(--font-t);font-size:11px;font-weight:700}
 .lg{background:#dcfce7;color:#15803d}.lw{background:#fef9c3;color:#854d0e}.lb{background:#fee2e2;color:#dc2626}.le{background:var(--grey-bg);color:#bbb}
@@ -116,8 +117,8 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;max-width:240px;
 .fhint{font-size:11px;color:#bbb;font-family:var(--font-b)}
 .frow{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .pan-ftr{padding:14px 24px;border-top:1.5px solid var(--grey-line);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;background:var(--grey-bg)}
-.toast{position:fixed;bottom:28px;right:28px;background:#1a1a2e;color:#fff;padding:13px 20px;border-radius:var(--r-lg);font-family:var(--font-t);font-size:13px;font-weight:600;box-shadow:var(--sh-lg);z-index:999;transform:translateY(120%);transition:transform .3s}
-.toast.show{transform:translateY(0)}
+.toast{position:fixed;bottom:28px;right:28px;opacity:0;visibility:hidden;pointer-events:none;background:#1a1a2e;color:#fff;padding:13px 20px;border-radius:var(--r-lg);font-family:var(--font-t);font-size:13px;font-weight:600;box-shadow:var(--sh-lg);z-index:999;transform:translateY(20px);transition:transform .3s,opacity .3s,visibility .3s}
+.toast.show{transform:translateY(0);opacity:1;visibility:visible}
 .empty{text-align:center;padding:64px 32px;color:#ccc}
 .empty h3{font-family:var(--font-t);font-size:18px;font-weight:600;margin-top:14px;color:#ddd}
 .empty p{font-size:13px;margin-top:6px}
@@ -141,22 +142,21 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;max-width:240px;
     <div class="hdr-logo">OE</div>
     <div>
       <div class="hdr-title">SEO Content Dashboard</div>
-      <div class="hdr-sub">Open English · Repositório de Conteúdo</div>
+      <div class="hdr-sub">Open English · Content Repository</div>
     </div>
   </div>
   <div class="hdr-actions">
-    <button class="btn btn-outline" onclick="refreshData()" title="Recarregar dados da planilha">
+    <button class="btn btn-outline" onclick="refreshData()" title="Reload data from the spreadsheet">
       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-      Atualizar
+      Refresh
     </button>
     <button class="btn btn-outline" onclick="exportHTML()">
       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 15l-4-4h3V4h2v7h3l-4 4zm-7 4h14v-2H5v2z"/></svg>
-      Exportar HTML
+      Export HTML
     </button>
-    <button id="lang-btn" class="btn btn-lang" onclick="toggleLang()">🇧🇷 PT</button>
     <button class="btn btn-primary" onclick="newContentClaude()">
       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-      Novo conteúdo
+      New content
     </button>
   </div>
 </header>
@@ -170,26 +170,26 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;max-width:240px;
   <div class="controls">
     <div class="srch-wrap">
       <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input class="srch" id="srch" type="search" placeholder="Buscar por keyword, URL, título…" oninput="onSrch()">
+      <input class="srch" id="srch" type="search" placeholder="Search by keyword, URL, title…" oninput="onSrch()">
     </div>
     <div class="flt">
       <select class="fsel" id="fStatus" onchange="render();highlightStat(this.value)">
-        <option value="">Todos os status</option>
-        <option>Published</option><option>Scheduled</option><option>Pending</option><option>In production</option>
+        <option value="">All statuses</option>
+        <option>Published</option><option>Scheduled</option><option>Pending</option><option>In production</option><option>Updated</option>
       </select>
     </div>
     <div class="ctrl-right">
-      <button class="btn btn-ghost" onclick="clearFilters()">Limpar filtros</button>
+      <button class="btn btn-ghost" onclick="clearFilters()">Clear filters</button>
     </div>
   </div>
   <div class="tbl-card">
     <div class="tbl-top">
       <span class="tbl-count" id="tblCount">—</span>
       <div style="display:flex;gap:8px;align-items:center">
-        <span style="font-family:var(--font-b);font-size:11px;color:#aaa">Por página:</span>
+        <span style="font-family:var(--font-b);font-size:11px;color:#aaa">Per page:</span>
         <select class="psz" id="pgSz" onchange="onPgSz()">
           <option value="25">25</option><option value="50" selected>50</option>
-          <option value="100">100</option><option value="9999">Todos</option>
+          <option value="100">100</option><option value="9999">All</option>
         </select>
       </div>
     </div>
@@ -201,21 +201,21 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;max-width:240px;
 <div class="overlay" id="overlay" onclick="onOvClick(event)">
   <div class="panel">
     <div class="pan-hdr">
-      <div class="pan-title" id="panTitle">Novo conteúdo</div>
+      <div class="pan-title" id="panTitle">New content</div>
       <button class="pan-x" onclick="closeModal()">×</button>
     </div>
     <div class="pan-body" id="panBody"></div>
     <div class="pan-ftr">
-      <button class="btn btn-danger" id="btnDel" onclick="deleteEntry()" style="margin-right:auto;display:none">🗑 Excluir</button>
-      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveEntry()">Salvar</button>
+      <button class="btn btn-danger" id="btnDel" onclick="deleteEntry()" style="margin-right:auto;display:none">🗑 Delete</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEntry()">Save</button>
     </div>
   </div>
 </div>
 
 <div id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="ld-msg">Carregando dados da planilha…</div>
+  <div class="ld-msg">Loading spreadsheet data…</div>
 </div>
 <div id="errorBanner"></div>
 <div class="toast" id="toast"></div>
@@ -241,18 +241,30 @@ function hideError() {
   if (el) el.style.display = "none";
 }
 
-async function fetchTab(tabName) {
-  const url = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID
-    + "/gviz/tq?tqx=out:json&sheet=" + encodeURIComponent(tabName) + "&headers=1";
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("HTTP " + res.status + " para " + tabName);
-  const raw = await res.text();
-  const m = raw.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/);
-  if (!m) throw new Error("Resposta inválida para " + tabName);
-  const json = JSON.parse(m[1]);
-  if (!json.table || !json.table.cols) throw new Error("Tabela vazia: " + tabName);
+// Loads a sheet tab via JSONP (script tag). Unlike fetch(), this also works
+// when the dashboard is opened as a local file or from any host (no CORS needed).
+let _jsonpSeq = 0;
+function loadGviz(tabName) {
+  return new Promise((resolve, reject) => {
+    const cb = "__gviz_cb_" + (++_jsonpSeq) + "_" + Date.now();
+    const script = document.createElement("script");
+    const cleanup = () => { delete window[cb]; script.remove(); clearTimeout(timer); };
+    const timer = setTimeout(() => { cleanup(); reject(new Error("Timeout for " + tabName)); }, 20000);
+    window[cb] = json => { cleanup(); resolve(json); };
+    script.onerror = () => { cleanup(); reject(new Error("Network error for " + tabName)); };
+    script.src = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID
+      + "/gviz/tq?headers=1&sheet=" + encodeURIComponent(tabName)
+      + "&tqx=responseHandler:" + cb + "&_=" + Date.now();
+    document.head.appendChild(script);
+  });
+}
 
-  const allHeaders = json.table.cols.map(c => c.label || "");
+async function fetchTab(tabName) {
+  const json = await loadGviz(tabName);
+  if (json.status === "error") throw new Error((json.errors && json.errors[0] && json.errors[0].detailed_message) || ("Error for " + tabName));
+  if (!json.table || !json.table.cols) throw new Error("Empty table: " + tabName);
+
+  const allHeaders = json.table.cols.map(c => (c.label || "").trim());
   // Filter out columns with empty labels (hidden/unnamed columns)
   const validCols = allHeaders.map((h, i) => ({h, i})).filter(x => x.h !== "");
   const headers = validCols.map(x => x.h);
@@ -269,10 +281,10 @@ async function fetchTab(tabName) {
           try {
             const parts = cell.v.slice(5,-1).split(",").map(Number);
             const d = new Date(parts[0], parts[1], parts[2]);
-            obj[h] = d.toISOString().slice(0,10);
-          } catch(e) { obj[h] = cell.v; }
+            obj[h] = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+          } catch(e) { obj[h] = cell.f || cell.v; }
         } else {
-          obj[h] = cell.v;
+          obj[h] = typeof cell.v === "number" ? String(cell.v) : cell.v;
         }
         // Capture Google Doc hyperlink URL from the cell's p property
         if (h === "Doc" && cell.p && cell.p.url) {
@@ -281,7 +293,7 @@ async function fetchTab(tabName) {
       }
     });
     return obj;
-  });
+  }).filter(o => Object.values(o).some(v => String(v).trim() !== ""));  // drop empty rows
 
   return { headers, rows };
 }
@@ -289,39 +301,40 @@ async function fetchTab(tabName) {
 async function fetchAllTabs() {
   showLoading(true);
   hideError();
+  const results = await Promise.allSettled(TABS.map(t => fetchTab(t.key)));
   const errors = [];
-  for (const t of TABS) {
-    try {
-      SD[t.key] = await fetchTab(t.key);
-    } catch(e) {
-      console.warn("Erro ao carregar " + t.key + ":", e);
-      SD[t.key] = { headers: [], rows: [] };
+  results.forEach((r, i) => {
+    const t = TABS[i];
+    if (r.status === "fulfilled") {
+      SD[t.key] = r.value;
+    } else {
+      console.warn("Error loading " + t.key + ":", r.reason);
+      if (!SD[t.key]) SD[t.key] = { headers: [], rows: [] };
       errors.push(t.label);
     }
-  }
+  });
   showLoading(false);
   if (errors.length > 0 && errors.length === TABS.length) {
-    showError('❌ Não foi possível carregar os dados. Verifique se a planilha está compartilhada publicamente com acesso de leitores.');
+    showError('❌ Could not load the data. Make sure the spreadsheet is shared publicly with viewer access.');
   } else if (errors.length > 0) {
-    showToast("⚠️ Erro ao carregar: " + errors.join(", "));
+    showToast("⚠️ Error loading: " + errors.join(", "));
   }
+  return errors.length < TABS.length;
 }
 
 async function refreshData() {
-  await fetchAllTabs();
+  const ok = await fetchAllTabs();
   buildTabs();
   switchTab(activeTab);
-  showToast("🔄 Dados atualizados!");
+  if (ok) showToast("🔄 Data refreshed from the spreadsheet!");
 }
 /* ─────────────────────────────────────────────────────────────── */
 
 const TABS = [
   {key:"Blog LATAM",          icon:"🌎", label:"Blog LATAM",        type:"blog"},
   {key:"Blog Brazil",         icon:"🇧🇷", label:"Blog Brazil",       type:"blog"},
-  {key:"LLM FAQs LATAM",      icon:"🤖", label:"LLM FAQs LATAM",    type:"web"},
-  {key:"LLM FAQs Brazil",     icon:"🤖", label:"LLM FAQs Brazil",   type:"web"},
-  {key:"Core Pages LATAM",    icon:"🌐", label:"Core Pages LATAM",  type:"web"},
-  {key:"Core Pages Brazil",   icon:"🌐", label:"Core Pages Brazil", type:"web"},
+  {key:"Optmization Blog LT", icon:"🛠️", label:"Optimization Blog LT", type:"optim"},
+  {key:"Optmization Blog BR", icon:"🛠️", label:"Optimization Blog BR", type:"optim"},
   {key:"Review Site LATAM",   icon:"⭐", label:"Review LATAM",      type:"review_latam"},
   {key:"Review Site Brazil",  icon:"⭐", label:"Review Brazil",     type:"review_brazil"}
 ];
@@ -330,18 +343,29 @@ const COLS = {
   blog:[
     {k:"KW",                     l:"Keyword",     cl:"td-kw",     s:1},
     {k:"Meta title",             l:"Meta Title",  cl:"td-meta",   s:1},
-    {k:"Meta title length",      l:"Tít.",        cl:"td-num",    s:1, pill:"title"},
+    {k:"Meta title length",      l:"Title len.",        cl:"td-num",    s:1, pill:"title"},
     {k:"Meta Description",       l:"Meta Desc.",  cl:"td-meta",   s:1},
-    {k:"Meta description length",l:"Desc.",       cl:"td-num",    s:1, pill:"desc"},
+    {k:"Meta description length",l:"Desc. len.",       cl:"td-num",    s:1, pill:"desc"},
     {k:"Status",                 l:"Status",      cl:"",          s:1, badge:1},
-    {k:"Update date",            l:"Atualização", cl:"",          s:1, date:1},
-    {k:"Impressions",            l:"Impressões",  cl:"td-num",    s:1},
-    {k:"Position",               l:"Posição",     cl:"td-num",    s:1},
+    {k:"Update date",            l:"Updated on", cl:"",          s:1, date:1},
+    {k:"Impressions",            l:"Impressions",  cl:"td-num",    s:1},
+    {k:"Position",               l:"Position",     cl:"td-num",    s:1},
+    {k:"URL",                    l:"URL",         cl:"td-url",    s:0, link:1},
+    {k:"Doc",                    l:"Doc",         cl:"td-doc",    s:0, doc:1}
+  ],
+  optim:[
+    {k:"KW",                     l:"Keyword",     cl:"td-kw",     s:1},
+    {k:"Meta title",             l:"Meta Title",  cl:"td-meta",   s:1},
+    {k:"Meta title length",      l:"Title len.",        cl:"td-num",    s:1, pill:"title"},
+    {k:"Meta Description",       l:"Meta Desc.",  cl:"td-meta",   s:1},
+    {k:"Meta description length",l:"Desc. len.",       cl:"td-num",    s:1, pill:"desc"},
+    {k:"Status",                 l:"Status",      cl:"",          s:1, badge:1},
+    {k:"Update date",            l:"Updated on", cl:"",          s:1, date:1},
     {k:"URL",                    l:"URL",         cl:"td-url",    s:0, link:1},
     {k:"Doc",                    l:"Doc",         cl:"td-doc",    s:0, doc:1}
   ],
   web:[
-    {k:"Page",               l:"Página",        cl:"td-url",  s:1, link:1},
+    {k:"Page",               l:"Page",        cl:"td-url",  s:1, link:1},
     {k:"Briefing/Work Order",l:"Briefing / WO", cl:"td-meta", s:0},
     {k:"JIRA",               l:"JIRA",          cl:"",        s:1, jira:1},
     {k:"Status",             l:"Status",        cl:"",        s:1, badge:1},
@@ -349,17 +373,17 @@ const COLS = {
   ],
   review_latam:[
     {k:"Keyword",            l:"Keyword",       cl:"td-kw",   s:1},
-    {k:"Title",              l:"Título",        cl:"td-meta", s:1},
+    {k:"Title",              l:"Title",        cl:"td-meta", s:1},
     {k:"Search Volume",      l:"Volume",        cl:"td-num",  s:1},
     {k:"Status",             l:"Status",        cl:"",        s:1, badge:1},
-    {k:"Publish Date",       l:"Publicação",    cl:"",        s:1, date:1},
+    {k:"Publish Date",       l:"Published on",    cl:"",        s:1, date:1},
     {k:"URL",                l:"URL",           cl:"td-url",  s:0, link:1},
     {k:"STG Link",           l:"STG",           cl:"td-doc",  s:0, doc:1},
     {k:"JIRA",               l:"JIRA",          cl:"",        s:1, jira:1}
   ],
   review_brazil:[
     {k:"Keyword",            l:"Keyword",       cl:"td-kw",   s:1},
-    {k:"Briefing",           l:"Título",        cl:"td-meta", s:1},
+    {k:"Briefing",           l:"Title",        cl:"td-meta", s:1},
     {k:"Status",             l:"Status",        cl:"",        s:1, badge:1},
     {k:"Deploy Date",        l:"Deploy",        cl:"",        s:1, date:1},
     {k:"URL",                l:"URL",           cl:"td-url",  s:0, link:1},
@@ -369,89 +393,54 @@ const COLS = {
 };
 
 
-// ── Language / i18n ──────────────────────────────────────────────
-let currentLang = 'pt';
+// ── UI labels (English) ──────────────────────────────────────────
 const LANG = {
-  pt: {
-    newContent:   'Novo conteúdo',
-    published:    'Publicados',
-    scheduled:    'Agendados',
-    pending:      'Pendentes',
-    inProduction: 'Em produção',
-    noResults:    'Nenhum resultado para',
-    searchPH:     'Buscar por título ou keyword…',
-    all:          'Todos',
-    status:       'Status',
-    update:       'Atualização',
-    impressions:  'Impressões',
-    position:     'Posição',
-  },
-  es: {
-    newContent:   'Nuevo contenido',
-    published:    'Publicados',
-    scheduled:    'Programados',
-    pending:      'Pendientes',
-    inProduction: 'En producción',
-    noResults:    'Sin resultados para',
-    searchPH:     'Buscar por título o keyword…',
-    all:          'Todos',
-    status:       'Estado',
-    update:       'Actualización',
-    impressions:  'Impresiones',
-    position:     'Posición',
-  }
+  newContent:   'New content',
+  published:    'Published',
+  scheduled:    'Scheduled',
+  pending:      'Pending',
+  inProduction: 'In production',
+  updated:      'Updated',
+  noResults:    'No results found',
 };
-function t(key) { return LANG[currentLang][key] || key; }
+function t(key) { return LANG[key] || key; }
 
 function newContentClaude() {
   // Detect site/idioma/aba from active tab
   const tabMeta = {
     "Blog LATAM":         { site: "Open English", idioma: "ES", aba: "Blog LATAM" },
     "Blog Brazil":        { site: "Open English", idioma: "PT-BR", aba: "Blog BR" },
-    "LLM FAQs LATAM":    { site: "Open English", idioma: "ES", aba: "Blog LATAM" },
-    "LLM FAQs Brazil":   { site: "Open English", idioma: "PT-BR", aba: "Blog BR" },
-    "Core Pages LATAM":  { site: "Open English", idioma: "ES", aba: "Blog LATAM" },
-    "Core Pages Brazil": { site: "Open English", idioma: "PT-BR", aba: "Blog BR" },
+    "Optmization Blog LT": { site: "Open English", idioma: "ES", aba: "Optmization Blog LT" },
+    "Optmization Blog BR": { site: "Open English", idioma: "PT-BR", aba: "Optmization Blog BR" },
     "Review Site LATAM": { site: "Open English", idioma: "ES", aba: "Review Site LATAM" },
     "Review Site Brazil":{ site: "Open English", idioma: "PT-BR", aba: "Review Site Brazil" },
   };
   const meta = tabMeta[activeTab] || { site: "Open English", idioma: "ES", aba: "Blog LATAM" };
 
   const template =
-`📋 NOVO CONTEÚDO — Open English
+`📋 NEW CONTENT — Open English
 
 Site: ${meta.site}
-Idioma: ${meta.idioma}
-Aba da planilha: ${meta.aba}
-Keyword principal:
-Título sugerido:
-Keywords secundárias (opcional):
-URL de destino (se já existir):
+Language: ${meta.idioma}
+Spreadsheet tab: ${meta.aba}
+Main keyword:
+Suggested title:
+Secondary keywords (optional):
+Target URL (if it already exists):
 Briefing:
 
 ---
-Siga o fluxo completo do projeto: pesquisa Ahrefs → análise SERP → criação do artigo → Google Doc → atualização da planilha.`;
+Follow the full project workflow: Ahrefs research → SERP analysis → article creation → Google Doc → spreadsheet update.`;
 
   navigator.clipboard.writeText(template).then(() => {
-    showToast('Template copiado! Cole no projeto e preencha o briefing 🚀');
+    showToast('Template copied! Paste it into the project and fill in the briefing 🚀');
   }).catch(() => {
-    showToast('Abrindo projeto SEO Content…');
+    showToast('Opening the SEO Content project…');
   });
   window.open('https://claude.ai/project/01a0109f-743e-76cd-8842-87f80eaebacf', '_blank');
 }
 
 
-function toggleLang() {
-  currentLang = (currentLang === 'pt') ? 'es' : 'pt';
-  document.getElementById('lang-btn').textContent = currentLang === 'pt' ? '🇧🇷 PT' : '🇪🇸 ES';
-  // Re-render search placeholder
-  const si = document.getElementById('srch');
-  if (si) si.placeholder = t('searchPH');
-  // Re-render stats and rows
-  renderStats();
-  renderHead();
-  render();
-}
 let activeTab = "Blog LATAM";
 let sortCol = "";
 let sortDir = 1;
@@ -507,6 +496,7 @@ function renderStats() {
   const sched = r.filter(x => x.Status === "Scheduled").length;
   const prod  = r.filter(x => x.Status === "In production").length;
   const pend  = r.filter(x => !x.Status || x.Status === "Pending").length;
+  const upd   = r.filter(x => x.Status === "Updated").length;
   const mk = (lbl,cls,val,s,id) =>
     `<div class="stat ${cls}" id="${id}" onclick="filterByStatus('${s}')" title="${lbl}">`
     + `<div class="stat-lbl">${lbl}</div><div class="stat-val">${val}</div></div>`;
@@ -515,13 +505,14 @@ function renderStats() {
     mk(t('published'),"orange",pub,"Published","st-pub") +
     mk(t('scheduled'),"purple",sched,"Scheduled","st-sched") +
     mk(t('pending'),"green",pend,"Pending","st-pend") +
-    mk(t('inProduction'),"teal",prod,"In production","st-prod");
+    mk(t('inProduction'),"teal",prod,"In production","st-prod") +
+    (colType() === "optim" ? mk(t('updated'),"green",upd,"Updated","st-upd") : "");
   highlightStat(document.getElementById("fStatus").value);
 }
 
 function highlightStat(s) {
   document.querySelectorAll(".stat").forEach(c => c.classList.remove("active"));
-  const map = {"":"st-all","Published":"st-pub","Scheduled":"st-sched","Pending":"st-pend","In production":"st-prod"};
+  const map = {"":"st-all","Published":"st-pub","Scheduled":"st-sched","Pending":"st-pend","In production":"st-prod","Updated":"st-upd"};
   const el = document.getElementById(map[s] || "st-all");
   if (el) el.classList.add("active");
 }
@@ -548,7 +539,7 @@ function getSorted(arr) {
     let va = a[sortCol]||"", vb = b[sortCol]||"";
     if (numCols.includes(sortCol)) { va=parseFloat(va)||0; vb=parseFloat(vb)||0; return (va-vb)*sortDir; }
     if (sortCol==="SERP Score") { va=parseFloat(String(va).replace("%",""))||0; vb=parseFloat(String(vb).replace("%",""))||0; return (va-vb)*sortDir; }
-    return sortDir * String(va).localeCompare(String(vb),"pt",{sensitivity:"base"});
+    return sortDir * String(va).localeCompare(String(vb),"en",{sensitivity:"base"});
   });
 }
 
@@ -566,7 +557,7 @@ function renderHead() {
     const srtIcon = c.s ? `<span class="srt" data-col="${c.k}">↕</span>` : "";
     return `<th${srtAttr}>${c.l}${srtIcon}</th>`;
   });
-  ths.push(`<th style="text-align:center;cursor:default">Ações</th>`);
+  ths.push(`<th style="text-align:center;cursor:default">Actions</th>`);
   document.getElementById("tblHead").innerHTML = `<tr>${ths.join("")}</tr>`;
 }
 
@@ -577,7 +568,7 @@ function render() {
   const totalPages = Math.max(1, Math.ceil(total/pgSize));
   if (curPage > totalPages) curPage = totalPages;
   const st = (curPage-1)*pgSize, en = Math.min(st+pgSize, total);
-  document.getElementById("tblCount").textContent = `${total} item${total!==1?"s":""} encontrado${total!==1?"s":""}`;
+  document.getElementById("tblCount").textContent = `${total} item${total!==1?"s":""} found`;
   renderRows(sorted.slice(st, en));
   renderPager(total, totalPages, st, en);
   // Update sort icons
@@ -595,7 +586,7 @@ function trunc(s,n) { return !s?"": s.length>n? s.slice(0,n)+"…":s; }
 function cellHTML(r, c) {
   const v = r[c.k] || "";
   if (c.badge) {
-    const map = {Published:"b-pub",Scheduled:"b-sched",Pending:"b-pend","In production":"b-prod"};
+    const map = {Published:"b-pub",Scheduled:"b-sched",Pending:"b-pend","In production":"b-prod",Updated:"b-upd"};
     const cls = map[v||"Pending"] || "b-pend";
     return `<td><span class="badge ${cls}"><span class="b-dot"></span>${esc(v||"Pending")}</span></td>`;
   }
@@ -622,7 +613,7 @@ function cellHTML(r, c) {
   if (c.doc) {
     const docUrl = r.Doc_url || (v && v.startsWith('http') ? v : null);
     const inner = docUrl
-      ? `<a href="${esc(docUrl)}" target="_blank" onclick="event.stopPropagation()" title="${esc(v||'Ver doc')}">📄 Ver</a>`
+      ? `<a href="${esc(docUrl)}" target="_blank" onclick="event.stopPropagation()" title="${esc(v||'View doc')}">📄 View</a>`
       : (v ? esc(trunc(v,28)) : `<span style="color:#ddd">—</span>`);
     return `<td class="${c.cl}">${inner}</td>`;
   }
@@ -642,7 +633,7 @@ function renderRows(page) {
   if (!page.length) {
     tbody.innerHTML = `<tr><td colspan="${cs.length+1}"><div class="empty">
       <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <h3>${t('noResults')} …</h3><p>Tente ajustar a busca ou os filtros.</p></div></td></tr>`;
+      <h3>${t('noResults')}</h3><p>Try adjusting the search or filters.</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML = page.map(r => {
@@ -656,7 +647,7 @@ function renderRows(page) {
 
 function renderPager(total, totalPages, st, en) {
   const el = document.getElementById("pager");
-  if (totalPages <= 1) { el.innerHTML = `<span class="pager-info">${total} itens</span>`; return; }
+  if (totalPages <= 1) { el.innerHTML = `<span class="pager-info">${total} item${total!==1?"s":""}</span>`; return; }
   const nums = (() => {
     if(totalPages<=7)return Array.from({length:totalPages},(_,i)=>i+1);
     const p=[1];
@@ -671,7 +662,7 @@ function renderPager(total, totalPages, st, en) {
     else btns+=`<button class="pbtn${p===curPage?" active":""}" onclick="goPage(${p})">${p}</button>`;
   });
   btns+=`<button class="pbtn" onclick="goPage(${curPage+1})" ${curPage===totalPages?"disabled":""}>›</button>`;
-  el.innerHTML = `<span class="pager-info">${st+1}–${en} de ${total}</span><div class="pager-btns">${btns}</div>`;
+  el.innerHTML = `<span class="pager-info">${st+1}–${en} of ${total}</span><div class="pager-btns">${btns}</div>`;
 }
 
 function goPage(p) {
@@ -685,7 +676,7 @@ function goPage(p) {
 function openModal(idx) {
   editIdx = idx;
   const r = idx !== null ? rows()[idx] : null;
-  document.getElementById("panTitle").textContent = idx===null ? "Novo conteúdo" : "Editar conteúdo";
+  document.getElementById("panTitle").textContent = idx===null ? "New content" : "Edit content";
   document.getElementById("btnDel").style.display = idx!==null ? "inline-flex" : "none";
   document.getElementById("panBody").innerHTML = buildForm(r);
   document.getElementById("overlay").classList.add("open");
@@ -723,28 +714,44 @@ function buildForm(r) {
 
   if (ct === "blog") {
     const dateVal = toDateInput(v("Update date")) || today;
-    return mkRow(mkGrp("Keyword", mkInp("fKW","text",v("KW"),"keyword principal")),
+    return mkRow(mkGrp("Keyword", mkInp("fKW","text",v("KW"),"main keyword")),
                  mkGrp("URL", mkInp("fURL","url",v("URL"),"https://…")))
       + mkRow(mkGrp("Status", mkSel("fStatus",statOpts,v("Status")||"Pending")),
-              mkGrp("Data atualização", mkInp("fDate","date",dateVal,"")))
-      + mkGrp("Link do Doc (Google Drive)", mkInp("fDoc","url",v("Doc"),"https://docs.google.com/…"))
+              mkGrp("Update date", mkInp("fDate","date",dateVal,"")))
+      + mkGrp("Doc link (Google Drive)", mkInp("fDoc","url",v("Doc"),"https://docs.google.com/…"))
       + `<div class="fgrp"><label class="flbl">Meta Title <span id="mTLen" style="color:#bbb;font-weight:400;margin-left:4px"></span></label>`
       + `<input class="finput" id="fMT" type="text" value="${esc(v("Meta title"))}" placeholder="50–60 chars" oninput="updLens()"></div>`
-      + `<span class="fhint">Ideal: 50–60 caracteres</span>`
+      + `<span class="fhint">Ideal: 50–60 characters</span>`
       + `<div class="fgrp"><label class="flbl">Meta Description <span id="mDLen" style="color:#bbb;font-weight:400;margin-left:4px"></span></label>`
       + mkTxt("fMD", v("Meta Description"), "120–160 chars") + `</div>`
-      + `<span class="fhint">Ideal: 120–160 caracteres</span>`
-      + mkRow(mkGrp("SERP Score", mkInp("fSerp","text",v("SERP Score"),"ex: 75%")),
-              mkGrp("Posição GSC", mkInp("fPos","number",v("Position"),"ex: 3")))
+      + `<span class="fhint">Ideal: 120–160 characters</span>`
+      + mkRow(mkGrp("SERP Score", mkInp("fSerp","text",v("SERP Score"),"e.g. 75%")),
+              mkGrp("GSC position", mkInp("fPos","number",v("Position"),"e.g. 3")))
       + mkRow(mkGrp("Clicks", mkInp("fClk","number",v("Clicks"),"0")),
-              mkGrp("Impressões", mkInp("fImp","number",v("Impressions"),"0")));
+              mkGrp("Impressions", mkInp("fImp","number",v("Impressions"),"0")));
+  }
+
+  if (ct === "optim") {
+    const optOpts = ["Pending","In production","Scheduled","Published","Updated"];
+    const dateVal = toDateInput(v("Update date")) || today;
+    return mkRow(mkGrp("Keyword", mkInp("fKW","text",v("KW"),"main keyword")),
+                 mkGrp("URL", mkInp("fURL","url",v("URL"),"https://…")))
+      + mkRow(mkGrp("Status", mkSel("fStatus",optOpts,v("Status")||"Pending")),
+              mkGrp("Update date", mkInp("fDate","date",dateVal,"")))
+      + mkGrp("Doc link (Google Drive)", mkInp("fDoc","url",v("Doc_url")||v("Doc"),"https://docs.google.com/…"))
+      + `<div class="fgrp"><label class="flbl">Meta Title <span id="mTLen" style="color:#bbb;font-weight:400;margin-left:4px"></span></label>`
+      + `<input class="finput" id="fMT" type="text" value="${esc(v("Meta title"))}" placeholder="50–60 chars" oninput="updLens()"></div>`
+      + `<span class="fhint">Ideal: 50–60 characters</span>`
+      + `<div class="fgrp"><label class="flbl">Meta Description <span id="mDLen" style="color:#bbb;font-weight:400;margin-left:4px"></span></label>`
+      + `<textarea class="ftxt" id="fMD" placeholder="120–160 chars" oninput="updLens()">${esc(v("Meta Description"))}</textarea></div>`
+      + `<span class="fhint">Ideal: 120–160 characters</span>`;
   }
 
   if (ct === "web") {
     const dateVal = toDateInput(v("Deploy date")) || today;
-    return mkGrp("URL da Página", mkInp("fPage","url",v("Page"),"https://…"))
-      + mkGrp("Briefing / Work Order", mkTxt("fBrief", v("Briefing/Work Order"), "descrição do trabalho"))
-      + mkRow(mkGrp("JIRA", mkInp("fJIRA","text",v("JIRA"),"ex: SWR-159")),
+    return mkGrp("Page URL", mkInp("fPage","url",v("Page"),"https://…"))
+      + mkGrp("Briefing / Work Order", mkTxt("fBrief", v("Briefing/Work Order"), "work description"))
+      + mkRow(mkGrp("JIRA", mkInp("fJIRA","text",v("JIRA"),"e.g. SWR-159")),
               mkGrp("Status", mkSel("fStatus",statOpts,v("Status")||"Pending")))
       + mkGrp("Deploy date", mkInp("fDate","date",dateVal,""));
   }
@@ -752,28 +759,28 @@ function buildForm(r) {
   if (ct === "review_latam") {
     const dateVal = toDateInput(v("Publish Date")) || today;
     return mkRow(mkGrp("Keyword", mkInp("fKW","text",v("Keyword"),"keyword")),
-                 mkGrp("Volume de Busca", mkInp("fVol","number",v("Search Volume"),"0")))
-      + mkGrp("Título", mkInp("fTitle","text",v("Title"),"título do artigo"))
+                 mkGrp("Search volume", mkInp("fVol","number",v("Search Volume"),"0")))
+      + mkGrp("Title", mkInp("fTitle","text",v("Title"),"article title"))
       + mkGrp("URL", mkInp("fURL","url",v("URL"),"https://…"))
       + mkRow(mkGrp("Status", mkSel("fStatus",statOpts,v("Status")||"Pending")),
-              mkGrp("Data de Publicação", mkInp("fDate","date",dateVal,"")))
-      + mkGrp("Briefing", mkTxt("fBrief", v("Briefing"), "briefing do conteúdo"))
+              mkGrp("Publish date", mkInp("fDate","date",dateVal,"")))
+      + mkGrp("Briefing", mkTxt("fBrief", v("Briefing"), "content briefing"))
       + mkRow(mkGrp("STG Link", mkInp("fSTG","url",v("STG Link"),"https://stg…")),
-              mkGrp("JIRA", mkInp("fJIRA","text",v("JIRA"),"ex: WEB-14754")));
+              mkGrp("JIRA", mkInp("fJIRA","text",v("JIRA"),"e.g. WEB-14754")));
   }
 
   // review_brazil
   const dateVal = toDateInput(v("Deploy Date")) || today;
   return mkRow(mkGrp("Keyword", mkInp("fKW","text",v("Keyword"),"keyword")),
-               mkGrp("Volume de Busca", mkInp("fVol","number",v("Search Volume"),"0")))
-    + mkGrp("Título", mkInp("fTitle","text",v("Title"),"título"))
+               mkGrp("Search volume", mkInp("fVol","number",v("Search Volume"),"0")))
+    + mkGrp("Title", mkInp("fTitle","text",v("Title"),"title"))
     + mkGrp("Meta Title", mkInp("fMT","text",v("Meta tittle"),"50–60 chars"))
     + mkGrp("Meta Description", mkTxt("fMD", v("Meta description"), "120–160 chars"))
     + mkGrp("URL", mkInp("fURL","url",v("URL"),"https://…"))
     + mkRow(mkGrp("Status", mkSel("fStatus",statOpts,v("Status")||"Pending")),
             mkGrp("Deploy Date", mkInp("fDate","date",dateVal,"")))
-    + mkRow(mkGrp("SERP Score", mkInp("fSerp","text",v("SERP Score"),"ex: 77%")),
-            mkGrp("JIRA", mkInp("fJIRA","text",v("JIRA"),"ex: WEB-14755")))
+    + mkRow(mkGrp("SERP Score", mkInp("fSerp","text",v("SERP Score"),"e.g. 77%")),
+            mkGrp("JIRA", mkInp("fJIRA","text",v("JIRA"),"e.g. WEB-14755")))
     + mkRow(mkGrp("STG Link", mkInp("fSTG","url",v("STG Link"),"https://stg…")),
             mkGrp("Briefing", mkInp("fBriefS","text",v("Briefing"),"briefing")));
 }
@@ -802,6 +809,13 @@ function saveEntry() {
       "Meta description length":String(md.trim().length||""),Status:status,
       "Update date":fmtDate("fDate"),"SERP Score":gv("fSerp"),
       Position:gv("fPos"),Clicks:gv("fClk"),Impressions:gv("fImp"),CTR:""};
+  } else if (ct === "optim") {
+    const mt = gv("fMT");
+    const md = (document.getElementById("fMD")||{}).value||"";
+    entry = {URL:gv("fURL"),KW:gv("fKW"),Doc:gv("fDoc"),Doc_url:gv("fDoc"),"Meta title":mt,
+      "Meta title length":String(mt.length||""),"Meta Description":md.trim(),
+      "Meta description length":String(md.trim().length||""),Status:status,
+      "Update date":fmtDate("fDate")};
   } else if (ct === "web") {
     const brief = (document.getElementById("fBrief")||{}).value||"";
     entry = {Page:gv("fPage"),"Briefing/Work Order":brief.trim(),JIRA:gv("fJIRA"),Status:status,"Deploy date":fmtDate("fDate")};
@@ -818,16 +832,16 @@ function saveEntry() {
   }
 
   const r = SD[activeTab].rows;
-  if (editIdx !== null) { r[editIdx] = entry; showToast("✅ Atualizado!"); }
-  else { r.unshift(entry); showToast("✅ Adicionado!"); }
+  if (editIdx !== null) { r[editIdx] = entry; showToast("✅ Updated!"); }
+  else { r.unshift(entry); showToast("✅ Added!"); }
   closeModal(); buildTabs(); renderStats(); render();
 }
 
 function deleteEntry() {
-  if (editIdx===null || !confirm("Excluir este conteúdo?")) return;
+  if (editIdx===null || !confirm("Delete this content?")) return;
   SD[activeTab].rows.splice(editIdx,1);
   closeModal(); buildTabs(); renderStats(); render();
-  showToast("🗑️ Excluído.");
+  showToast("🗑️ Deleted.");
 }
 
 function showToast(msg, ms=2800) {
@@ -841,7 +855,7 @@ function exportHTML() {
   const src = document.documentElement.outerHTML;
   const marker = "let SD = ";
   const pos = src.indexOf(marker);
-  if (pos === -1) { showToast("⚠️ Erro ao exportar."); return; }
+  if (pos === -1) { showToast("⚠️ Export error."); return; }
   // Find end of the object literal after the marker
   let depth=0, i=pos+marker.length, inStr=false, esc_=false;
   while(i < src.length) {
@@ -858,7 +872,7 @@ function exportHTML() {
   const a = document.createElement("a");
   a.href=URL.createObjectURL(blob); a.download="oe-seo-dashboard.html"; a.click();
   URL.revokeObjectURL(a.href);
-  showToast("📥 HTML exportado! Faça commit no GitHub.");
+  showToast("📥 HTML exported! Commit it to GitHub.");
 }
 
 document.addEventListener("keydown", e => { if(e.key==="Escape") closeModal(); });
