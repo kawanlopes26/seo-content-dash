@@ -52,6 +52,7 @@ body{font-family:var(--font-b);background:var(--grey-light);color:#1a1a2e;min-he
 .stat.green .stat-val{color:#16a34a}
 .stat.purple .stat-val{color:#7c3aed}
 .stat.teal .stat-val{color:#0891b2}
+.stat.red .stat-val{color:#dc2626}
 .controls{background:#fff;border-radius:var(--r-lg);padding:16px 20px;box-shadow:var(--sh-sm);border:1.5px solid var(--grey-line);margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .srch-wrap{position:relative;flex:1;min-width:220px}
 .srch-wrap svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#bbb;pointer-events:none}
@@ -65,6 +66,8 @@ select.fsel:focus{border-color:var(--oe-blue)}
 .tbl-top{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1.5px solid var(--grey-line);background:var(--grey-bg)}
 .tbl-count{font-family:var(--font-t);font-size:13px;font-weight:600;color:#777}
 .tbl-scroll{overflow-x:auto}
+.tbl-scroll-top{overflow-x:auto;overflow-y:hidden;border-bottom:1px solid var(--grey-line);background:var(--grey-bg)}
+.tbl-scroll-top>div{height:1px}
 table{width:100%;border-collapse:collapse}
 thead th{font-family:var(--font-t);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#888;padding:11px 14px;text-align:left;background:var(--grey-bg);border-bottom:1.5px solid var(--grey-line);white-space:nowrap;cursor:pointer;user-select:none}
 thead th:hover{color:var(--oe-blue)}
@@ -79,12 +82,15 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;max-width:240px;
 .td-meta{color:#555;max-width:220px}
 .td-url a,.td-doc a{color:var(--oe-blue);text-decoration:none;font-size:12px}
 .td-url a:hover,.td-doc a:hover{text-decoration:underline}
+.cell-link{color:var(--oe-blue);text-decoration:none}
+.cell-link:hover{text-decoration:underline}
 .td-num{text-align:center;font-family:var(--font-t);font-weight:600;font-size:12px}
 .td-center{text-align:center}
 .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--r-full);font-family:var(--font-t);font-size:11px;font-weight:600;white-space:nowrap}
 .b-pub{background:#dcfce7;color:#15803d}.b-sched{background:#dbeafe;color:#1d4ed8}
 .b-pend{background:var(--grey-bg);color:#777}.b-prod{background:#fef9c3;color:#854d0e}
 .b-upd{background:#ccfbf1;color:#0f766e}
+.b-impl{background:#fee2e2;color:#b91c1c}
 .b-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
 .lpill{display:inline-flex;align-items:center;justify-content:center;min-width:34px;padding:2px 8px;border-radius:var(--r-full);font-family:var(--font-t);font-size:11px;font-weight:700}
 .lg{background:#dcfce7;color:#15803d}.lw{background:#fef9c3;color:#854d0e}.lb{background:#fee2e2;color:#dc2626}.le{background:var(--grey-bg);color:#bbb}
@@ -192,7 +198,8 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;max-width:240px;
         </select>
       </div>
     </div>
-    <div class="tbl-scroll"><table><thead id="tblHead"></thead><tbody id="tblBody"></tbody></table></div>
+    <div class="tbl-scroll-top" id="scrollTop"><div id="scrollTopInner"></div></div>
+    <div class="tbl-scroll" id="scrollMain"><table><thead id="tblHead"></thead><tbody id="tblBody"></tbody></table></div>
     <div class="pager" id="pager"></div>
   </div>
 </main>
@@ -225,6 +232,13 @@ let SD = {};
 /* ─── Live Google Sheets fetch ─────────────────────────────────── */
 const SPREADSHEET_ID = "1_hwUhgp0k9m2Ff1Vx3B3GjxxSXj0wtxmgIo6lB5mQ0k";
 
+// Web app URL of the Apps Script "dashboard links" feed (ends with /exec).
+// When set, the dashboard gets the links behind cells (smart chips, hyperlinks)
+// and hides hidden rows/columns automatically. When empty or unavailable,
+// it falls back to the public spreadsheet feed (no smart-chip links).
+const APPS_SCRIPT_URL = "";
+const JIRA_BASE = "https://openenglish.jira.com/browse/";
+
 function showLoading(v) {
   const el = document.getElementById("loadingOverlay");
   if (el) el.style.display = v ? "flex" : "none";
@@ -243,6 +257,39 @@ function hideError() {
 // Loads a sheet tab via JSONP (script tag). Unlike fetch(), this also works
 // when the dashboard is opened as a local file or from any host (no CORS needed).
 let _jsonpSeq = 0;
+function loadJsonp(urlWithoutCallback, label, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const cb = "__jsonp_cb_" + (++_jsonpSeq) + "_" + Date.now();
+    const script = document.createElement("script");
+    const cleanup = () => { delete window[cb]; script.remove(); clearTimeout(timer); };
+    const timer = setTimeout(() => { cleanup(); reject(new Error("Timeout for " + label)); }, timeoutMs || 30000);
+    window[cb] = json => { cleanup(); resolve(json); };
+    script.onerror = () => { cleanup(); reject(new Error("Network error for " + label)); };
+    script.src = urlWithoutCallback + (urlWithoutCallback.includes("?") ? "&" : "?") + "callback=" + cb + "&_=" + Date.now();
+    document.head.appendChild(script);
+  });
+}
+
+// "10/13/2026" -> "2026-10-13" so dates look and sort the same from both feeds
+function normDate(v) {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(v).trim());
+  return m ? m[3] + "-" + m[1].padStart(2,"0") + "-" + m[2].padStart(2,"0") : v;
+}
+
+// Loads every tab (values + links) from the Apps Script feed in one call
+async function fetchFromScript() {
+  const json = await loadJsonp(APPS_SCRIPT_URL, "links feed", 45000);
+  if (!json || !json.ok || !json.tabs) throw new Error((json && json.error) || "Invalid links feed");
+  const out = {};
+  TABS.forEach(t => {
+    const tab = json.tabs[t.key];
+    if (!tab) return;
+    tab.rows.forEach(r => Object.keys(r).forEach(k => { if (!k.endsWith("_url")) r[k] = normDate(r[k]); }));
+    out[t.key] = { headers: tab.headers, rows: tab.rows };
+  });
+  return out;
+}
+
 function loadGviz(tabName) {
   return new Promise((resolve, reject) => {
     const cb = "__gviz_cb_" + (++_jsonpSeq) + "_" + Date.now();
@@ -265,7 +312,8 @@ async function fetchTab(tabName) {
 
   const allHeaders = json.table.cols.map(c => (c.label || "").trim());
   // Filter out columns with empty labels (hidden/unnamed columns)
-  const validCols = allHeaders.map((h, i) => ({h, i})).filter(x => x.h !== "");
+  const hiddenCols = HIDDEN_COLS[tabName] || [];
+  const validCols = allHeaders.map((h, i) => ({h, i})).filter(x => x.h !== "" && !hiddenCols.includes(x.h));
   const headers = validCols.map(x => x.h);
 
   const rows = (json.table.rows || []).map(row => {
@@ -286,8 +334,8 @@ async function fetchTab(tabName) {
           obj[h] = typeof cell.v === "number" ? String(cell.v) : cell.v;
         }
         // Capture Google Doc hyperlink URL from the cell's p property
-        if (h === "Doc" && cell.p && cell.p.url) {
-          obj["Doc_url"] = cell.p.url;
+        if (cell.p && cell.p.url) {
+          obj[h + "_url"] = cell.p.url;
         }
       }
     });
@@ -300,6 +348,18 @@ async function fetchTab(tabName) {
 async function fetchAllTabs() {
   showLoading(true);
   hideError();
+  if (APPS_SCRIPT_URL) {
+    try {
+      const data = await fetchFromScript();
+      const missing = TABS.filter(t => !data[t.key]);
+      Object.assign(SD, data);
+      if (!missing.length) { normStatuses(); showLoading(false); return true; }
+      console.warn("Links feed missing tabs:", missing.map(t => t.key));
+    } catch (e) {
+      console.warn("Links feed unavailable, using the public feed:", e);
+      showToast("⚠️ Links feed unavailable — showing data without document links.", 4000);
+    }
+  }
   const results = await Promise.allSettled(TABS.map(t => fetchTab(t.key)));
   const errors = [];
   results.forEach((r, i) => {
@@ -312,6 +372,7 @@ async function fetchAllTabs() {
       errors.push(t.label);
     }
   });
+  normStatuses();
   showLoading(false);
   if (errors.length > 0 && errors.length === TABS.length) {
     showError('❌ Could not load the data. Make sure the spreadsheet is shared publicly with viewer access.');
@@ -328,6 +389,16 @@ async function refreshData() {
   if (ok) showToast("🔄 Data refreshed from the spreadsheet!");
 }
 /* ─────────────────────────────────────────────────────────────── */
+
+// Columns that are hidden in the spreadsheet (snapshot of 2026-10-13).
+// The public data feed still sends hidden columns, so this list is kept by hand.
+// Hidden ROWS need no list: the feed already leaves them out automatically.
+const HIDDEN_COLS = {
+  "Blog LATAM":         ["Clicks","Impressions","CTR","Position","SERP Score"],
+  "Blog Brazil":        ["Clicks","Impressions","CTR","Position","SERP Score"],
+  "Review Site LATAM":  ["Title","Search Volume"],
+  "Review Site Brazil": ["Search Volume","Title","Meta tittle","Meta description","SERP Score"]
+};
 
 const TABS = [
   {key:"Blog LATAM",          icon:"🌎", label:"Blog LATAM",        type:"blog"},
@@ -347,8 +418,6 @@ const COLS = {
     {k:"Meta description length",l:"Desc. len.",       cl:"td-num",    s:1, pill:"desc"},
     {k:"Status",                 l:"Status",      cl:"",          s:1, badge:1},
     {k:"Update date",            l:"Updated on", cl:"",          s:1, date:1},
-    {k:"Impressions",            l:"Impressions",  cl:"td-num",    s:1},
-    {k:"Position",               l:"Position",     cl:"td-num",    s:1},
     {k:"URL",                    l:"URL",         cl:"td-url",    s:0, link:1},
     {k:"Doc",                    l:"Doc",         cl:"td-doc",    s:0, doc:1}
   ],
@@ -372,8 +441,7 @@ const COLS = {
   ],
   review_latam:[
     {k:"Keyword",            l:"Keyword",       cl:"td-kw",   s:1},
-    {k:"Title",              l:"Title",        cl:"td-meta", s:1},
-    {k:"Search Volume",      l:"Volume",        cl:"td-num",  s:1},
+    {k:"Briefing",           l:"Briefing",      cl:"td-meta", s:1},
     {k:"Status",             l:"Status",        cl:"",        s:1, badge:1},
     {k:"Publish Date",       l:"Published on",    cl:"",        s:1, date:1},
     {k:"URL",                l:"URL",           cl:"td-url",  s:0, link:1},
@@ -382,9 +450,9 @@ const COLS = {
   ],
   review_brazil:[
     {k:"Keyword",            l:"Keyword",       cl:"td-kw",   s:1},
-    {k:"Briefing",           l:"Title",        cl:"td-meta", s:1},
+    {k:"Briefing",           l:"Briefing",        cl:"td-meta", s:1},
     {k:"Status",             l:"Status",        cl:"",        s:1, badge:1},
-    {k:"Deploy Date",        l:"Deploy",        cl:"",        s:1, date:1},
+    {k:"Publish Date",       l:"Published on",  cl:"",        s:1, date:1},
     {k:"URL",                l:"URL",           cl:"td-url",  s:0, link:1},
     {k:"STG Link",           l:"STG",           cl:"td-doc",  s:0, doc:1},
     {k:"JIRA",               l:"JIRA",          cl:"",        s:1, jira:1}
@@ -399,6 +467,7 @@ const LANG = {
   scheduled:    'Scheduled',
   inProduction: 'In production',
   updated:      'Updated',
+  implementation: 'Implementation',
   noResults:    'No results found',
 };
 function t(key) { return LANG[key] || key; }
@@ -443,16 +512,26 @@ Follow the full project workflow: Ahrefs research → SERP analysis → article 
 const STATUS_BY_TYPE = {
   blog:          ["Published","Scheduled","In production"],
   optim:         ["In production","Updated"],
-  review_latam:  ["Published","In production"],
-  review_brazil: ["Published","In production"],
+  review_latam:  ["Published","In production","Implementation"],
+  review_brazil: ["Published","In production","Implementation"],
   web:           ["Published","Scheduled","In production"]
 };
 const STATUS_UI = {
   "Published":     {lbl:"published",    cls:"orange", id:"st-pub"},
   "Scheduled":     {lbl:"scheduled",    cls:"purple", id:"st-sched"},
   "In production": {lbl:"inProduction", cls:"teal",   id:"st-prod"},
-  "Updated":       {lbl:"updated",      cls:"green",  id:"st-upd"}
+  "Updated":       {lbl:"updated",      cls:"green",  id:"st-upd"},
+  "Implementation":{lbl:"implementation",cls:"red",   id:"st-impl"}
 };
+// Status spellings used in the spreadsheet -> name shown in the dashboard
+// (the Review Site dropdowns spell it "Implemetation")
+const STATUS_ALIASES = { "Implemetation": "Implementation" };
+function normStatuses() {
+  Object.values(SD).forEach(tab => (tab.rows || []).forEach(r => {
+    const s = String(r.Status || "").trim();
+    r.Status = STATUS_ALIASES[s] || s;
+  }));
+}
 function statuses() { return STATUS_BY_TYPE[colType()] || STATUS_BY_TYPE.blog; }
 function buildStatusFilter() {
   document.getElementById("fStatus").innerHTML = `<option value="">All statuses</option>`
@@ -581,12 +660,31 @@ function render() {
   document.getElementById("tblCount").textContent = `${total} item${total!==1?"s":""} found`;
   renderRows(sorted.slice(st, en));
   renderPager(total, totalPages, st, en);
+  requestAnimationFrame(syncTopScroll);
   // Update sort icons
   document.querySelectorAll(".srt").forEach(el => {
     el.textContent = el.dataset.col === sortCol ? (sortDir===1?"↑":"↓") : "↕";
     el.style.opacity = el.dataset.col === sortCol ? "1" : ".35";
   });
 }
+
+// Top horizontal scrollbar, kept in sync with the one under the table
+function syncTopScroll() {
+  const top = document.getElementById("scrollTop");
+  const main = document.getElementById("scrollMain");
+  if (!top || !main) return;
+  document.getElementById("scrollTopInner").style.width = main.scrollWidth + "px";
+  top.style.display = main.scrollWidth > main.clientWidth ? "block" : "none";
+  top.scrollLeft = main.scrollLeft;
+}
+document.addEventListener("DOMContentLoaded", () => {
+  const top = document.getElementById("scrollTop");
+  const main = document.getElementById("scrollMain");
+  let lock = false;
+  top.addEventListener("scroll", () => { if (lock) { lock = false; return; } lock = true; main.scrollLeft = top.scrollLeft; });
+  main.addEventListener("scroll", () => { if (lock) { lock = false; return; } lock = true; top.scrollLeft = main.scrollLeft; });
+  window.addEventListener("resize", syncTopScroll);
+});
 
 function esc(s) {
   return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -596,7 +694,7 @@ function trunc(s,n) { return !s?"": s.length>n? s.slice(0,n)+"…":s; }
 function cellHTML(r, c) {
   const v = r[c.k] || "";
   if (c.badge) {
-    const map = {Published:"b-pub",Scheduled:"b-sched",Pending:"b-pend","In production":"b-prod",Updated:"b-upd"};
+    const map = {Published:"b-pub",Scheduled:"b-sched",Pending:"b-pend","In production":"b-prod",Updated:"b-upd",Implementation:"b-impl"};
     if (!v) return `<td><span style="color:#ccc;font-size:11px">—</span></td>`;
     const cls = map[v] || "b-pend";
     return `<td><span class="badge ${cls}"><span class="b-dot"></span>${esc(v)}</span></td>`;
@@ -622,18 +720,26 @@ function cellHTML(r, c) {
     return `<td class="${c.cl}">${inner}</td>`;
   }
   if (c.doc) {
-    const docUrl = r.Doc_url || (v && v.startsWith('http') ? v : null);
+    const docUrl = r[c.k + "_url"] || (v && String(v).startsWith('http') ? v : null);
     const inner = docUrl
       ? `<a href="${esc(docUrl)}" target="_blank" onclick="event.stopPropagation()" title="${esc(v||'View doc')}">📄 View</a>`
       : (v ? esc(trunc(v,28)) : `<span style="color:#ddd">—</span>`);
     return `<td class="${c.cl}">${inner}</td>`;
   }
   if (c.jira) {
-    const inner = v ? `<span style="font-family:var(--font-t);font-size:11px;background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:9999px">${esc(v)}</span>` : "";
+    const pill = `font-family:var(--font-t);font-size:11px;background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:9999px;text-decoration:none`;
+    const jiraUrl = r[c.k + "_url"] || (/^[A-Z][A-Z0-9]+-\d+$/.test(String(v).trim()) ? JIRA_BASE + String(v).trim() : "");
+    const inner = !v ? "" : jiraUrl
+      ? `<a href="${esc(jiraUrl)}" target="_blank" onclick="event.stopPropagation()" style="${pill}" title="Open in JIRA">${esc(v)} ↗</a>`
+      : `<span style="${pill}">${esc(v)}</span>`;
     return `<td>${inner}</td>`;
   }
   if (c.date) {
     return `<td><span style="font-size:11px;color:#999;white-space:nowrap">${esc(v)}</span></td>`;
+  }
+  const url = r[c.k + "_url"];
+  if (url) {
+    return `<td class="${c.cl}"><a class="cell-link" href="${esc(url)}" target="_blank" onclick="event.stopPropagation()" title="${esc(v)}">${esc(trunc(v,38))}</a></td>`;
   }
   return `<td class="${c.cl}"><span title="${esc(v)}">${esc(trunc(v,38))}</span></td>`;
 }
@@ -729,17 +835,13 @@ function buildForm(r) {
                  mkGrp("URL", mkInp("fURL","url",v("URL"),"https://…")))
       + mkRow(mkGrp("Status", mkSel("fStatusM",statOpts,v("Status")||"In production")),
               mkGrp("Update date", mkInp("fDate","date",dateVal,"")))
-      + mkGrp("Doc link (Google Drive)", mkInp("fDoc","url",v("Doc"),"https://docs.google.com/…"))
+      + mkGrp("Doc link (Google Drive)", mkInp("fDoc","url",v("Doc_url")||v("Doc"),"https://docs.google.com/…"))
       + `<div class="fgrp"><label class="flbl">Meta Title <span id="mTLen" style="color:#bbb;font-weight:400;margin-left:4px"></span></label>`
       + `<input class="finput" id="fMT" type="text" value="${esc(v("Meta title"))}" placeholder="50–60 chars" oninput="updLens()"></div>`
       + `<span class="fhint">Ideal: 50–60 characters</span>`
       + `<div class="fgrp"><label class="flbl">Meta Description <span id="mDLen" style="color:#bbb;font-weight:400;margin-left:4px"></span></label>`
       + mkTxt("fMD", v("Meta Description"), "120–160 chars") + `</div>`
-      + `<span class="fhint">Ideal: 120–160 characters</span>`
-      + mkRow(mkGrp("SERP Score", mkInp("fSerp","text",v("SERP Score"),"e.g. 75%")),
-              mkGrp("GSC position", mkInp("fPos","number",v("Position"),"e.g. 3")))
-      + mkRow(mkGrp("Clicks", mkInp("fClk","number",v("Clicks"),"0")),
-              mkGrp("Impressions", mkInp("fImp","number",v("Impressions"),"0")));
+      + `<span class="fhint">Ideal: 120–160 characters</span>`;
   }
 
   if (ct === "optim") {
@@ -768,9 +870,7 @@ function buildForm(r) {
 
   if (ct === "review_latam") {
     const dateVal = toDateInput(v("Publish Date")) || today;
-    return mkRow(mkGrp("Keyword", mkInp("fKW","text",v("Keyword"),"keyword")),
-                 mkGrp("Search volume", mkInp("fVol","number",v("Search Volume"),"0")))
-      + mkGrp("Title", mkInp("fTitle","text",v("Title"),"article title"))
+    return mkGrp("Keyword", mkInp("fKW","text",v("Keyword"),"keyword"))
       + mkGrp("URL", mkInp("fURL","url",v("URL"),"https://…"))
       + mkRow(mkGrp("Status", mkSel("fStatusM",statOpts,v("Status")||"In production")),
               mkGrp("Publish date", mkInp("fDate","date",dateVal,"")))
@@ -780,19 +880,14 @@ function buildForm(r) {
   }
 
   // review_brazil
-  const dateVal = toDateInput(v("Deploy Date")) || today;
+  const dateVal = toDateInput(v("Publish Date")) || today;
   return mkRow(mkGrp("Keyword", mkInp("fKW","text",v("Keyword"),"keyword")),
-               mkGrp("Search volume", mkInp("fVol","number",v("Search Volume"),"0")))
-    + mkGrp("Title", mkInp("fTitle","text",v("Title"),"title"))
-    + mkGrp("Meta Title", mkInp("fMT","text",v("Meta tittle"),"50–60 chars"))
-    + mkGrp("Meta Description", mkTxt("fMD", v("Meta description"), "120–160 chars"))
-    + mkGrp("URL", mkInp("fURL","url",v("URL"),"https://…"))
+               mkGrp("URL", mkInp("fURL","url",v("URL"),"https://…")))
+    + mkGrp("Briefing", mkInp("fBriefS","text",v("Briefing"),"briefing"))
     + mkRow(mkGrp("Status", mkSel("fStatusM",statOpts,v("Status")||"In production")),
-            mkGrp("Deploy Date", mkInp("fDate","date",dateVal,"")))
-    + mkRow(mkGrp("SERP Score", mkInp("fSerp","text",v("SERP Score"),"e.g. 77%")),
-            mkGrp("JIRA", mkInp("fJIRA","text",v("JIRA"),"e.g. WEB-14755")))
+            mkGrp("Publish date", mkInp("fDate","date",dateVal,"")))
     + mkRow(mkGrp("STG Link", mkInp("fSTG","url",v("STG Link"),"https://stg…")),
-            mkGrp("Briefing", mkInp("fBriefS","text",v("Briefing"),"briefing")));
+            mkGrp("JIRA", mkInp("fJIRA","text",v("JIRA"),"e.g. WEB-14755")));
 }
 
 function updLens() {
@@ -817,8 +912,7 @@ function saveEntry() {
     entry = {KW:gv("fKW"),URL:gv("fURL"),Doc:gv("fDoc"),"Meta title":mt,
       "Meta title length":String(mt.length||""),"Meta Description":md.trim(),
       "Meta description length":String(md.trim().length||""),Status:status,
-      "Update date":fmtDate("fDate"),"SERP Score":gv("fSerp"),
-      Position:gv("fPos"),Clicks:gv("fClk"),Impressions:gv("fImp"),CTR:""};
+      "Update date":fmtDate("fDate")};
   } else if (ct === "optim") {
     const mt = gv("fMT");
     const md = (document.getElementById("fMD")||{}).value||"";
@@ -831,13 +925,11 @@ function saveEntry() {
     entry = {Page:gv("fPage"),"Briefing/Work Order":brief.trim(),JIRA:gv("fJIRA"),Status:status,"Deploy date":fmtDate("fDate")};
   } else if (ct === "review_latam") {
     const brief = (document.getElementById("fBrief")||{}).value||"";
-    entry = {Keyword:gv("fKW"),"Search Volume":gv("fVol"),Title:gv("fTitle"),URL:gv("fURL"),
+    entry = {Keyword:gv("fKW"),URL:gv("fURL"),
       Status:status,"Publish Date":fmtDate("fDate"),Briefing:brief.trim(),"STG Link":gv("fSTG"),JIRA:gv("fJIRA")};
   } else {
-    const md = (document.getElementById("fMD")||{}).value||"";
-    entry = {Keyword:gv("fKW"),"Search Volume":gv("fVol"),Title:gv("fTitle"),
-      "Meta tittle":gv("fMT"),"Meta description":md.trim(),URL:gv("fURL"),
-      Status:status,"Deploy Date":fmtDate("fDate"),"SERP Score":gv("fSerp"),
+    entry = {Keyword:gv("fKW"),URL:gv("fURL"),
+      Status:status,"Publish Date":fmtDate("fDate"),
       JIRA:gv("fJIRA"),"STG Link":gv("fSTG"),Briefing:gv("fBriefS")};
   }
 
